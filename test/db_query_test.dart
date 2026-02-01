@@ -6,7 +6,7 @@ import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_hydrometer
 import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_controller_telemetry.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_profile.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/user_profile.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 void main() {
   test('Query oldest hydrometer telemetry', () async {
@@ -32,9 +32,9 @@ void main() {
         .findFirst();
 
     if (oldest != null) {
-      print('OLDEST_RECORD_FOUND: ${oldest.createdOn} - Temp: ${oldest.temperature}, Gravity: ${oldest.gravity}');
+      debugPrint('OLDEST_RECORD_FOUND: ${oldest.createdOn} - Temp: ${oldest.temperature}, Gravity: ${oldest.gravity}');
     } else {
-      print('NO_RECORDS_FOUND');
+      debugPrint('NO_RECORDS_FOUND');
     }
 
     await isar.close();

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 class UnifiedTelemetryPoint {
   final DateTime createdOn;
   final double? temperature;
+  final double? targetTemperature;
   final double? gravity;
   final double? battery;
   final String? profileName;
@@ -12,6 +13,7 @@ class UnifiedTelemetryPoint {
   UnifiedTelemetryPoint({
     required this.createdOn,
     this.temperature,
+    this.targetTemperature,
     this.gravity,
     this.battery,
     this.profileName,
@@ -25,6 +27,7 @@ class UnifiedTelemetryPoint {
 
   factory UnifiedTelemetryPoint.fromMap(Map<String, dynamic> map) {
     final tempKeys = ['temperature', 'Temperature', 'temp', 'Temp'];
+    final targetTempKeys = ['targetTemperature', 'TargetTemperature', 'targetTemp', 'TargetTemp'];
     final gravKeys = ['gravity', 'Gravity', 'gravitySG', 'GravitySG', 'sg', 'SG'];
     final battKeys = ['battery', 'Battery', 'batt', 'Batt'];
 
@@ -41,6 +44,7 @@ class UnifiedTelemetryPoint {
     return UnifiedTelemetryPoint(
       createdOn: dt,
       temperature: getVal(tempKeys),
+      targetTemperature: getVal(targetTempKeys),
       gravity: normalizeGravity(getVal(gravKeys)),
       battery: getVal(battKeys),
       profileName: map['profileName'] ?? map['ProfileName'],
@@ -51,6 +55,7 @@ class UnifiedTelemetryPoint {
 class TelemetryProcessingResult {
   final List<UnifiedTelemetryPoint> sortedPoints;
   final List<FlSpot> pointsTemp;
+  final List<FlSpot> pointsTargetTemp;
   final List<FlSpot> pointsGravity; // Normalized for chart
   final List<FlSpot> pointsAbv;     // Normalized for chart
   final List<FlSpot> pointsVelocity;// Normalized for chart
@@ -75,6 +80,7 @@ class TelemetryProcessingResult {
   TelemetryProcessingResult({
     required this.sortedPoints,
     required this.pointsTemp,
+    required this.pointsTargetTemp,
     required this.pointsGravity,
     required this.pointsAbv,
     required this.pointsVelocity,
@@ -128,27 +134,31 @@ class TelemetryProcessor {
   static TelemetryProcessingResult process(List<UnifiedTelemetryPoint> points) {
     if (points.isEmpty) {
       return TelemetryProcessingResult(
-        sortedPoints: [], pointsTemp: [], pointsGravity: [], pointsAbv: [], pointsVelocity: [], dailyDeltas: {},
+        sortedPoints: [], pointsTemp: [], pointsTargetTemp: [], pointsGravity: [], pointsAbv: [], pointsVelocity: [], dailyDeltas: {},
         minTemp: 0, maxTemp: 30, minGrav: 1.000, maxGrav: 1.080, minAbv: 0, maxAbv: 8, minVel: 0, maxVel: 10,
       );
     }
 
     final sorted = List<UnifiedTelemetryPoint>.from(points)..sort((a, b) => a.createdOn.compareTo(b.createdOn));
 
-    // Median Filter für Gravity
-    final rawGravs = sorted.map((p) => p.gravity ?? 0.0).toList();
+    // Separate points by data availability
+    final pointsWithTemp = sorted.where((p) => p.temperature != null).toList();
+    final pointsWithTarget = sorted.where((p) => p.targetTemperature != null).toList();
+    final pointsWithGrav = sorted.where((p) => p.gravity != null && p.gravity! > 0.5).toList();
+
+    // Median Filter for Gravity (only on points that actually have gravity)
+    final rawGravs = pointsWithGrav.map((p) => p.gravity!).toList();
     final filteredGravs = _applyMedianFilter(rawGravs, 5);
 
-    // Filter valid (gravity > 0.5)
     final pointsTempRaw = <FlSpot>[];
+    final pointsTargetTempRaw = <FlSpot>[];
     final pointsGravRaw = <FlSpot>[];
     final pointsAbvRaw = <FlSpot>[];
     final pointsVelRaw = <FlSpot>[];
     final dailyDeltas = <String, double>{};
 
     double? og;
-    final validGravsForOg = filteredGravs.where((g) => g > 0.5).toList();
-    if (validGravsForOg.isNotEmpty) og = validGravsForOg.reduce(max);
+    if (filteredGravs.isNotEmpty) og = filteredGravs.reduce(max);
 
     // Latest values
     double? latestTemp;
@@ -157,12 +167,17 @@ class TelemetryProcessor {
     double? latestBattery;
     DateTime? lastDate;
 
-    for (int i = sorted.length - 1; i >= 0; i--) {
-      final p = sorted[i];
-      latestTemp ??= p.temperature;
-      if (latestGravity == null && filteredGravs[i] > 0.5) latestGravity = filteredGravs[i];
-      latestBattery ??= p.battery;
-      if (lastDate == null && p.createdOn.year > 2000) lastDate = p.createdOn;
+    if (pointsWithTemp.isNotEmpty) latestTemp = pointsWithTemp.last.temperature;
+    if (filteredGravs.isNotEmpty) latestGravity = filteredGravs.last;
+    if (sorted.isNotEmpty) {
+      lastDate = sorted.last.createdOn;
+      // Search for latest battery in sorted descending
+      for (var i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].battery != null) {
+          latestBattery = sorted[i].battery;
+          break;
+        }
+      }
     }
 
     final currentG = latestGravity;
@@ -173,12 +188,12 @@ class TelemetryProcessor {
 
     // 24h Delta
     double? delta24h;
-    if (latestGravity != null && lastDate != null) {
+    if (latestGravity != null && lastDate != null && pointsWithGrav.isNotEmpty) {
       final target = lastDate.subtract(const Duration(hours: 24));
       int closestIdx = -1;
       int minDiff = 86400 * 1000;
-      for (int i = 0; i < sorted.length; i++) {
-        final diff = (sorted[i].createdOn.difference(target)).inMilliseconds.abs();
+      for (int i = 0; i < pointsWithGrav.length; i++) {
+        final diff = (pointsWithGrav[i].createdOn.difference(target)).inMilliseconds.abs();
         if (diff < minDiff) {
           minDiff = diff;
           closestIdx = i;
@@ -186,17 +201,16 @@ class TelemetryProcessor {
       }
       if (closestIdx != -1 && minDiff < 3600 * 1000 * 6) {
         final oldG = filteredGravs[closestIdx];
-        if (oldG > 0.5) delta24h = latestGravity! - oldG;
+        delta24h = latestGravity - oldG;
       }
     }
 
     // Daily Deltas for Labels
     DateTime? lastDay;
     double? lastDayG;
-    for (int i = 0; i < sorted.length; i++) {
+    for (int i = 0; i < pointsWithGrav.length; i++) {
       final g = filteredGravs[i];
-      if (g <= 0.5) continue;
-      final t = sorted[i].createdOn;
+      final t = pointsWithGrav[i].createdOn;
       final day = DateTime(t.year, t.month, t.day);
       if (lastDay == null) {
         lastDay = day; lastDayG = g;
@@ -212,42 +226,49 @@ class TelemetryProcessor {
     }
 
     // Raw points for chart
-    for (int i = 0; i < sorted.length; i++) {
-      final p = sorted[i];
+    for (int i = 0; i < pointsWithTemp.length; i++) {
+      final p = pointsWithTemp[i];
+      pointsTempRaw.add(FlSpot(p.createdOn.millisecondsSinceEpoch.toDouble(), p.temperature!));
+    }
+    
+    for (int i = 0; i < pointsWithTarget.length; i++) {
+      final p = pointsWithTarget[i];
+      pointsTargetTempRaw.add(FlSpot(p.createdOn.millisecondsSinceEpoch.toDouble(), p.targetTemperature!));
+    }
+
+    for (int i = 0; i < pointsWithGrav.length; i++) {
+      final p = pointsWithGrav[i];
       final g = filteredGravs[i];
       final x = p.createdOn.millisecondsSinceEpoch.toDouble();
       
-      if (p.temperature != null) pointsTempRaw.add(FlSpot(x, p.temperature!));
-      if (g > 0.5) {
-        pointsGravRaw.add(FlSpot(x, g));
-        
-        // ABV
-        if (og != null) {
-          double a = (og - g) * 131.25;
-          if (a < 0) a = 0;
-          if (pointsAbvRaw.isNotEmpty && a < pointsAbvRaw.last.y) a = pointsAbvRaw.last.y;
-          pointsAbvRaw.add(FlSpot(x, a));
-        }
+      pointsGravRaw.add(FlSpot(x, g));
+      
+      // ABV
+      if (og != null) {
+        double a = (og - g) * 131.25;
+        if (a < 0) a = 0;
+        if (pointsAbvRaw.isNotEmpty && a < pointsAbvRaw.last.y) a = pointsAbvRaw.last.y;
+        pointsAbvRaw.add(FlSpot(x, a));
+      }
 
-        // Velocity (12h window)
-        final windowMs = 12 * 60 * 60 * 1000;
-        int? startIdx;
-        for (int j = i - 1; j >= 0; j--) {
-          if (sorted[j].createdOn.millisecondsSinceEpoch <= x - windowMs) {
-            startIdx = j; break;
-          }
+      // Velocity (12h window)
+      final windowMs = 12 * 60 * 60 * 1000;
+      int? startIdx;
+      for (int j = i - 1; j >= 0; j--) {
+        if (pointsWithGrav[j].createdOn.millisecondsSinceEpoch <= x - windowMs) {
+          startIdx = j; break;
         }
-        if (startIdx != null) {
-          final dtDays = (x - sorted[startIdx].createdOn.millisecondsSinceEpoch) / (1000 * 60 * 60 * 24);
-          if (dtDays >= 0.05) {
-            double dg = (filteredGravs[startIdx] - g) * 1000;
-            double vel = dg / dtDays;
-            if (vel < 0) vel = 0;
-            pointsVelRaw.add(FlSpot(x, vel));
-          }
-        } else {
-          pointsVelRaw.add(FlSpot(x, 0));
+      }
+      if (startIdx != null) {
+        final dtDays = (x - pointsWithGrav[startIdx].createdOn.millisecondsSinceEpoch) / (1000 * 60 * 60 * 24);
+        if (dtDays >= 0.05) {
+          double dg = (filteredGravs[startIdx] - g) * 1000;
+          double vel = dg / dtDays;
+          if (vel < 0) vel = 0;
+          pointsVelRaw.add(FlSpot(x, vel));
         }
+      } else {
+        pointsVelRaw.add(FlSpot(x, 0));
       }
     }
 
@@ -256,7 +277,7 @@ class TelemetryProcessor {
     double maxTemp = pointsTempRaw.isNotEmpty ? pointsTempRaw.map((e) => e.y).reduce(max) + 5 : 30;
     double minGrav = pointsGravRaw.isNotEmpty ? pointsGravRaw.map((e) => e.y).reduce(min) - 0.005 : 1.000;
     double maxGrav = pointsGravRaw.isNotEmpty ? pointsGravRaw.map((e) => e.y).reduce(max) + 0.005 : 1.080;
-    double minAbv = -0.5, maxAbv = pointsAbvRaw.isNotEmpty ? pointsAbvRaw.map((e) => e.y).reduce(max) + 1.0 : 8.0;
+    double minAbv = 0.0, maxAbv = pointsAbvRaw.isNotEmpty ? pointsAbvRaw.map((e) => e.y).reduce(max) + 1.0 : 8.0;
     double minVel = 0, maxVel = pointsVelRaw.isNotEmpty ? (pointsVelRaw.map((e) => e.y).reduce(max) * 1.2 / 5).ceil() * 5.0 : 10.0;
     if (maxVel < 5) maxVel = 5;
 
@@ -268,6 +289,7 @@ class TelemetryProcessor {
     return TelemetryProcessingResult(
       sortedPoints: sorted,
       pointsTemp: pointsTempRaw,
+      pointsTargetTemp: pointsTargetTempRaw,
       pointsGravity: pointsGravRaw.map((e) => FlSpot(e.x, nG(e.y))).toList(),
       pointsAbv: pointsAbvRaw.map((e) => FlSpot(e.x, nA(e.y))).toList(),
       pointsVelocity: pointsVelRaw.map((e) => FlSpot(e.x, nV(e.y))).toList(),

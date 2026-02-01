@@ -86,26 +86,18 @@ class _RaptDashboardPageState extends ConsumerState<RaptDashboardPage> {
       final repository = await ref.read(raptRepositoryProvider.future);
       final List<dynamic> allRows = [];
       
-      // We fetch all telemetries for all devices of the profile to have a complete picture 
-      // (or we filter by the selected device, currently the logic fetches all)
-      final controllers = await repository.fetchControllers();
-      for (var c in controllers) {
-         final cId = (c['id'] ?? c['temperatureControllerId'])?.toString();
-         if (cId == null) continue;
-         try {
-           final rows = await repository.fetchTelemetry(cId, startDate: startOverride);
-           allRows.addAll(rows.map((r) => {...r, 'deviceId': cId, 'deviceType': 'controller'}));
-         } catch (_) {}
-      }
-
-      final hydrometers = await repository.fetchHydrometers();
-      for (var h in hydrometers) {
-         final hId = (h['id'] ?? h['hydrometerId'])?.toString();
-         if (hId == null) continue;
-         try {
-           final rows = await repository.fetchHydrometerTelemetry(hId, startDate: startOverride);
-           allRows.addAll(rows.map((r) => {...r, 'deviceId': hId, 'deviceType': 'hydrometer'}));
-         } catch (_) {}
+      final parts = combinedId.split(':');
+      if (parts.length == 2) {
+        final type = parts[0];
+        final id = parts[1];
+        
+        if (type == 'controller') {
+          final rows = await repository.fetchTelemetry(id, startDate: startOverride);
+          allRows.addAll(rows.map((r) => {...r, 'deviceId': id, 'deviceType': 'controller'}));
+        } else if (type == 'hydrometer') {
+          final rows = await repository.fetchHydrometerTelemetry(id, startDate: startOverride);
+          allRows.addAll(rows.map((r) => {...r, 'deviceId': id, 'deviceType': 'hydrometer'}));
+        }
       }
       
       setState(() {

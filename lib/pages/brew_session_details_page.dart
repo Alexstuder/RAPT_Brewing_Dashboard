@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_hydrometer_telemetry.dart';
+import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_controller_telemetry.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/repositories/rapt_repository.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/brew_session.dart';
 import 'package:isar/isar.dart';
@@ -19,6 +20,7 @@ class BrewSessionDetailsPage extends ConsumerStatefulWidget {
 class _BrewSessionDetailsPageState extends ConsumerState<BrewSessionDetailsPage> {
   bool _isLoading = true;
   List<RaptHydrometerTelemetry> _telemetryPoints = [];
+  List<RaptControllerTelemetry> _controllerPoints = [];
   
   DateTime? _customStart;
   DateTime? _customEnd;
@@ -42,14 +44,22 @@ class _BrewSessionDetailsPageState extends ConsumerState<BrewSessionDetailsPage>
       final start = _customStart ?? _session.startDate;
       final end = _customEnd ?? _session.endDate;
 
-      final points = await isar.raptHydrometerTelemetrys
+      final hPoints = await isar.raptHydrometerTelemetrys
           .filter()
           .createdOnBetween(start, end)
           .sortByCreatedOn()
           .findAll();
 
+      final cPoints = await isar.raptControllerTelemetrys
+          .filter()
+          .createdOnBetween(start, end)
+          .profileIdEqualTo(_session.profileId)
+          .sortByCreatedOn()
+          .findAll();
+
       setState(() {
-        _telemetryPoints = points;
+        _telemetryPoints = hPoints;
+        _controllerPoints = cPoints;
         _isLoading = false;
       });
     } catch (e) {
@@ -77,13 +87,24 @@ class _BrewSessionDetailsPageState extends ConsumerState<BrewSessionDetailsPage>
 
   @override
   Widget build(BuildContext context) {
-    final points = _telemetryPoints.map((p) => UnifiedTelemetryPoint(
-      createdOn: p.createdOn,
-      temperature: p.temperature,
-      gravity: UnifiedTelemetryPoint.normalizeGravity(p.gravity),
-      battery: p.battery,
-      profileName: _session.name,
-    )).toList();
+    final points = [
+      ..._telemetryPoints.map((p) => UnifiedTelemetryPoint(
+        createdOn: p.createdOn,
+        temperature: p.temperature,
+        gravity: UnifiedTelemetryPoint.normalizeGravity(p.gravity),
+        battery: p.battery,
+        profileName: _session.name,
+      )),
+      ..._controllerPoints.map((p) => UnifiedTelemetryPoint(
+        createdOn: p.createdOn,
+        temperature: p.temperature,
+        targetTemperature: p.targetTemperature,
+        profileName: _session.name,
+      )),
+    ];
+
+    // Sort combined points by date
+    points.sort((a, b) => a.createdOn.compareTo(b.createdOn));
 
     return Scaffold(
       backgroundColor: const Color(0xFF020617),

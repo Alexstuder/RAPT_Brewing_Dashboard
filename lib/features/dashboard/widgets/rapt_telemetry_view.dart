@@ -97,7 +97,44 @@ class RaptTelemetryView extends StatelessWidget {
                 height: 400,
                 child: points.isEmpty 
                   ? const Center(child: Text('Keine Daten', style: TextStyle(color: Colors.white54)))
-                  : _buildChart(result),
+                  : Stack(
+                      children: [
+                        _buildChart(result),
+                        Positioned(
+                          right: 88,
+                          top: 0,
+                          bottom: 45,
+                          child: Center(
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: Text('Gravity', style: TextStyle(color: Colors.red.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 42,
+                          top: 0,
+                          bottom: 45,
+                          child: Center(
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: Text('SG/Tag', style: TextStyle(color: Colors.brown.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 5,
+                          top: 0,
+                          bottom: 45,
+                          child: Center(
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: Text('Alkohol %', style: TextStyle(color: Colors.amber.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
               ),
               if (footerControls != null) ...[
                 const SizedBox(height: 24),
@@ -183,9 +220,10 @@ class RaptTelemetryView extends StatelessWidget {
     spacing: 16, runSpacing: 8, alignment: WrapAlignment.center, 
     children: [
       _legendItem('Temp (°C)', Colors.blue),
+      _legendItem('Soll-Temp', Colors.blueGrey),
       _legendItem('Gravity', Colors.red),
       _legendItem('Alkohol (%)', Colors.amber),
-      _legendItem('Gärgeschw.', Colors.brown),
+      _legendItem('Gärgeschw. (SG/Tag)', Colors.brown),
     ]
   );
 
@@ -303,10 +341,46 @@ class RaptTelemetryView extends StatelessWidget {
           rightTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 140,
               getTitlesWidget: (val, meta) {
                 final g = res.denormalizeGravity(val);
-                return Text(g.toStringAsFixed(3), style: const TextStyle(color: Colors.red, fontSize: 10));
+                final a = res.denormalizeAbv(val);
+                final v = res.denormalizeVel(val) / 1000.0; // Show as SG/Tag instead of Points/Tag
+                
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Gravity Column
+                      SizedBox(
+                        width: 38,
+                        child: Text(g.toStringAsFixed(3), 
+                          style: const TextStyle(color: Colors.red, fontSize: 9), 
+                          textAlign: TextAlign.right
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Velocity Column (User wants "Gravity" scale here instead of P/Tag)
+                      SizedBox(
+                        width: 38,
+                        child: Text(v.toStringAsFixed(3), 
+                          style: const TextStyle(color: Colors.brown, fontSize: 9), 
+                          textAlign: TextAlign.right
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Alcohol Column
+                      SizedBox(
+                        width: 25,
+                        child: Text(a.toStringAsFixed(1), 
+                          style: const TextStyle(color: Colors.amber, fontSize: 9), 
+                          textAlign: TextAlign.right
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ),
@@ -318,9 +392,10 @@ class RaptTelemetryView extends StatelessWidget {
             getTooltipItems: (touchedSpots) {
               final items = touchedSpots.map((spot) {
                 if (spot.barIndex == 0) return LineTooltipItem('${spot.y.toStringAsFixed(1)} °C', const TextStyle(color: Colors.blue));
-                if (spot.barIndex == 1) return LineTooltipItem('${res.denormalizeGravity(spot.y).toStringAsFixed(4)} SG', const TextStyle(color: Colors.red));
-                if (spot.barIndex == 2) return LineTooltipItem('${res.denormalizeAbv(spot.y).toStringAsFixed(1)} %', const TextStyle(color: Colors.amber));
-                return LineTooltipItem('${(res.denormalizeVel(spot.y) / 1000).toStringAsFixed(4)} SG/Tag', const TextStyle(color: Colors.brown));
+                if (spot.barIndex == 1) return LineTooltipItem('${spot.y.toStringAsFixed(1)} °C (Soll)', const TextStyle(color: Colors.blueGrey));
+                if (spot.barIndex == 2) return LineTooltipItem('${res.denormalizeGravity(spot.y).toStringAsFixed(4)} SG', const TextStyle(color: Colors.red));
+                if (spot.barIndex == 3) return LineTooltipItem('${res.denormalizeAbv(spot.y).toStringAsFixed(1)} %', const TextStyle(color: Colors.amber));
+                return LineTooltipItem('${(res.denormalizeVel(spot.y) / 1000.0).toStringAsFixed(4)} SG/Tag', const TextStyle(color: Colors.brown));
               }).toList();
 
               if (items.isNotEmpty && touchedSpots.isNotEmpty) {
@@ -342,6 +417,7 @@ class RaptTelemetryView extends StatelessWidget {
         ),
         lineBarsData: [
           _bar(res.pointsTemp, Colors.blue, true, true),
+          _bar(res.pointsTargetTemp, Colors.blueGrey, false, false, width: 1.5, isDashed: true),
           _bar(res.pointsGravity, Colors.red, true, true),
           _bar(res.pointsAbv, Colors.amber, true, true),
           _bar(res.pointsVelocity, Colors.brown, false, false, width: 1.5),
@@ -352,7 +428,7 @@ class RaptTelemetryView extends StatelessWidget {
 
   static FlLine _getGridLine(double _) => const FlLine(color: Colors.white10, strokeWidth: 1);
 
-  LineChartBarData _bar(List<FlSpot> spots, Color color, bool curved, bool below, {double width = 2}) {
+  LineChartBarData _bar(List<FlSpot> spots, Color color, bool curved, bool below, {double width = 2, bool isDashed = false}) {
     return LineChartBarData(
       spots: spots,
       color: color,
@@ -360,6 +436,7 @@ class RaptTelemetryView extends StatelessWidget {
       barWidth: width,
       dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(show: below, color: color.withValues(alpha: 0.1)),
+      dashArray: isDashed ? [5, 5] : null,
     );
   }
 }
