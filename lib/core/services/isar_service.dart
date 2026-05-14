@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/user_profile.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_temperature_controller.dart';
 import 'package:rapt_brewing_dashboard/features/dashboard/models/rapt_hydrometer.dart';
@@ -15,7 +16,11 @@ class IsarService {
   late Isar isar;
 
   Future<void> init() async {
-    final dir = await getApplicationDocumentsDirectory();
+    String dirPath = '';
+    if (!kIsWeb) {
+      final dir = await getApplicationDocumentsDirectory();
+      dirPath = dir.path;
+    }
     isar = await Isar.open(
       [
         UserProfileSchema,
@@ -26,7 +31,7 @@ class IsarService {
         RaptProfileSchema,
         BrewSessionSchema
       ],
-      directory: dir.path,
+      directory: dirPath,
     );
   }
 }
