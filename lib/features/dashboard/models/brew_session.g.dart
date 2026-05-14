@@ -15,7 +15,7 @@ extension GetBrewSessionCollection on Isar {
 
 const BrewSessionSchema = CollectionSchema(
   name: r'BrewSession',
-  id: -1880901201940304735,
+  id: -1880901201940304640,
   properties: {
     r'customEndDate': PropertySchema(
       id: 0,
@@ -65,7 +65,7 @@ const BrewSessionSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'profileId': IndexSchema(
-      id: 6052971939042612300,
+      id: 6052971939042612224,
       name: r'profileId',
       unique: true,
       replace: true,

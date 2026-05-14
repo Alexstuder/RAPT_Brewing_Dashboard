@@ -16,7 +16,7 @@ extension GetRaptHydrometerTelemetryCollection on Isar {
 
 const RaptHydrometerTelemetrySchema = CollectionSchema(
   name: r'RaptHydrometerTelemetry',
-  id: -1453491841308992214,
+  id: -1453491841308992256,
   properties: {
     r'battery': PropertySchema(
       id: 0,
@@ -81,7 +81,7 @@ const RaptHydrometerTelemetrySchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'hydrometerId': IndexSchema(
-      id: 3926491229168205109,
+      id: 3926491229168205312,
       name: r'hydrometerId',
       unique: false,
       replace: false,
@@ -94,7 +94,7 @@ const RaptHydrometerTelemetrySchema = CollectionSchema(
       ],
     ),
     r'rowKey': IndexSchema(
-      id: -4629187292167891774,
+      id: -4629187292167891968,
       name: r'rowKey',
       unique: true,
       replace: true,
@@ -107,7 +107,7 @@ const RaptHydrometerTelemetrySchema = CollectionSchema(
       ],
     ),
     r'createdOn': IndexSchema(
-      id: -2233607959267706691,
+      id: -2233607959267706624,
       name: r'createdOn',
       unique: false,
       replace: false,

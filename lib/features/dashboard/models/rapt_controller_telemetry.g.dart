@@ -16,7 +16,7 @@ extension GetRaptControllerTelemetryCollection on Isar {
 
 const RaptControllerTelemetrySchema = CollectionSchema(
   name: r'RaptControllerTelemetry',
-  id: 3580879638625162041,
+  id: 3580879638625162240,
   properties: {
     r'controlDeviceMacAddress': PropertySchema(
       id: 0,
@@ -141,7 +141,7 @@ const RaptControllerTelemetrySchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'deviceId': IndexSchema(
-      id: 4442814072367132509,
+      id: 4442814072367132672,
       name: r'deviceId',
       unique: false,
       replace: false,
@@ -154,7 +154,7 @@ const RaptControllerTelemetrySchema = CollectionSchema(
       ],
     ),
     r'id': IndexSchema(
-      id: -3268401673993471357,
+      id: -3268401673993471488,
       name: r'id',
       unique: false,
       replace: false,
@@ -167,7 +167,7 @@ const RaptControllerTelemetrySchema = CollectionSchema(
       ],
     ),
     r'rowKey': IndexSchema(
-      id: -4629187292167891774,
+      id: -4629187292167891968,
       name: r'rowKey',
       unique: true,
       replace: true,
@@ -180,7 +180,7 @@ const RaptControllerTelemetrySchema = CollectionSchema(
       ],
     ),
     r'createdOn': IndexSchema(
-      id: -2233607959267706691,
+      id: -2233607959267706624,
       name: r'createdOn',
       unique: false,
       replace: false,

@@ -16,7 +16,7 @@ extension GetRaptTemperatureControllerCollection on Isar {
 
 const RaptTemperatureControllerSchema = CollectionSchema(
   name: r'RaptTemperatureController',
-  id: 1650974909774021062,
+  id: 1650974909774021120,
   properties: {
     r'active': PropertySchema(
       id: 0,
@@ -361,7 +361,7 @@ const RaptTemperatureControllerSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'raptId': IndexSchema(
-      id: -2251589165953265267,
+      id: -2251589165953265152,
       name: r'raptId',
       unique: true,
       replace: true,
@@ -374,7 +374,7 @@ const RaptTemperatureControllerSchema = CollectionSchema(
       ],
     ),
     r'lastSeen': IndexSchema(
-      id: -4002271667734767009,
+      id: -4002271667734767104,
       name: r'lastSeen',
       unique: false,
       replace: false,

@@ -15,7 +15,7 @@ extension GetRaptProfileCollection on Isar {
 
 const RaptProfileSchema = CollectionSchema(
   name: r'RaptProfile',
-  id: -2252875268229322189,
+  id: -2252875268229322240,
   properties: {
     r'alertsJson': PropertySchema(
       id: 0,
@@ -120,7 +120,7 @@ const RaptProfileSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'id': IndexSchema(
-      id: -3268401673993471357,
+      id: -3268401673993471488,
       name: r'id',
       unique: true,
       replace: true,

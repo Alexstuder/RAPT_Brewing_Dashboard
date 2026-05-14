@@ -5,6 +5,7 @@ import 'user_profile_page.dart';
 import 'rapt_dashboard_page.dart';
 import 'historical_data_page.dart';
 import 'brew_session_details_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingPage extends ConsumerStatefulWidget {
   const LandingPage({super.key});
@@ -128,6 +129,15 @@ class _LandingPageState extends ConsumerState<LandingPage> {
                 },
               ),
             ],
+            const SizedBox(height: 32),
+            _LandingButton(
+              title: 'Zurück zur Webseite',
+              icon: Icons.arrow_back,
+              onPressed: () async {
+                final Uri url = Uri.parse('https://alexstuder.ch');
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              },
+            ),
           ],
         ),
       ),

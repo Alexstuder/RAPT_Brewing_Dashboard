@@ -15,7 +15,7 @@ extension GetRaptHydrometerCollection on Isar {
 
 const RaptHydrometerSchema = CollectionSchema(
   name: r'RaptHydrometer',
-  id: 1126929101598320682,
+  id: 1126929101598320640,
   properties: {
     r'active': PropertySchema(
       id: 0,
@@ -180,7 +180,7 @@ const RaptHydrometerSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'raptId': IndexSchema(
-      id: -2251589165953265267,
+      id: -2251589165953265152,
       name: r'raptId',
       unique: true,
       replace: true,
@@ -193,7 +193,7 @@ const RaptHydrometerSchema = CollectionSchema(
       ],
     ),
     r'lastSeen': IndexSchema(
-      id: -4002271667734767009,
+      id: -4002271667734767104,
       name: r'lastSeen',
       unique: false,
       replace: false,
